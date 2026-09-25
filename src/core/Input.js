@@ -117,8 +117,6 @@ export class Input {
 				const radius = rect.width * 0.29;
 				let x = e.clientX - ( rect.left + rect.width / 2 );
 				let y = e.clientY - ( rect.top + rect.height / 2 );
-				const length = Math.hypot( x, y );
-				if ( length > radius ) { x *= radius / length; y *= radius / length; }
 				state.x = x / radius;
 				state.y = - y / radius;
 				knob.style.transform = `translate( calc( -50% + ${ x }px ), calc( -50% + ${ y }px ) )`;
@@ -194,7 +192,14 @@ export class Input {
 		const { x, y } = this.moveStick;
 		const length = Math.hypot( x, y );
 		let sx = 0, sy = 0;
-		if ( length > 0.08 ) {
+		if ( length > 1 ) {
+
+			// Beyond the ring, preserve the stick direction; its extra travel becomes sprint.
+			sx = x / length;
+			sy = y / length;
+
+		} else if ( length > 0.08 ) {
+
 			const magnitude = Math.min( ( length - 0.08 ) / 0.92, 1 );
 			const shaped = magnitude ** 1.7 / length;
 			sx = this._shapeAxis( x, 0.22 );
@@ -209,6 +214,7 @@ export class Input {
 		return {
 			x: this._moveAxis( 'KeyA', 'KeyD', sx ),
 			y: this._moveAxis( 'KeyS', 'KeyW', sy ),
+			sprint: Math.max( 0, Math.min( length - 1, 1 ) ),
 		};
 
 	}
@@ -245,10 +251,13 @@ export class Input {
 		const length = Math.hypot( x, y );
 		let sx = 0, sy = 0;
 		if ( length > 0.04 ) {
+
 			const magnitude = Math.min( ( length - 0.04 ) / 0.96, 1 );
 			const shaped = magnitude ** 1.7 / length;
-			sx = x * shaped;
-			sy = this._shapeAxis( y, LOOK_VERTICAL_DEAD_ZONE );
+			const outsideScale = Math.max( length, 1 );
+			sx = x * shaped * outsideScale;
+			sy = this._shapeAxis( Math.max( - 1, Math.min( y, 1 ) ), LOOK_VERTICAL_DEAD_ZONE ) * outsideScale;
+
 		}
 		const l = {
 			x: this.look.x + sx * 420 * dt,

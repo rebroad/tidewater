@@ -202,8 +202,9 @@ export class Player {
 		const depth = this.waterH - this.position.y; // water depth at the feet
 		const wade = THREE.MathUtils.clamp( depth / 1.2, 0, 1 );
 		this.wade = wade;
-		const sprint = inp.down( 'ShiftLeft' ) || inp.down( 'ShiftRight' );
-		const speed = ( sprint ? 6.2 : 3.0 ) * THREE.MathUtils.lerp( 1, 0.42, wade );
+		const sprintAmount = Math.max( axes.sprint, inp.down( 'ShiftLeft' ) || inp.down( 'ShiftRight' ) ? 1 : 0 );
+		const sprinting = sprintAmount > 0;
+		const speed = THREE.MathUtils.lerp( 3.0, 6.2, sprintAmount ) * THREE.MathUtils.lerp( 1, 0.42, wade );
 		const accel = this.grounded ? 14 : 2.5;
 		const k = 1 - Math.exp( - accel * dt );
 		this.velocity.x += ( wish.x * speed - this.velocity.x ) * k;
@@ -244,7 +245,7 @@ export class Player {
 
 			this.bob += moved * 2.4;
 			this.stepDist += moved;
-			const stride = sprint ? 0.9 : 0.62;
+			const stride = sprinting ? 0.9 : 0.62;
 			if ( this.stepDist > stride ) {
 
 				this.stepDist = 0;
@@ -333,8 +334,8 @@ export class Player {
 		// at the surface W along a level view keeps you on top; looking down dives
 		if ( atSurface && wish.y > - 0.25 && ! inp.down( 'KeyC' ) ) wish.y = Math.max( wish.y, 0 );
 
-		const sprint = inp.down( 'ShiftLeft' ) || inp.down( 'ShiftRight' );
-		const speed = sprint ? 2.5 : 1.5;
+		const sprintAmount = Math.max( axes.sprint, inp.down( 'ShiftLeft' ) || inp.down( 'ShiftRight' ) ? 1 : 0 );
+		const speed = THREE.MathUtils.lerp( 1.5, 2.5, sprintAmount );
 		const k = 1 - Math.exp( - dt * 3.0 );
 		this.velocity.lerp( wish.multiplyScalar( speed ), k );
 
@@ -618,7 +619,8 @@ export class Player {
 		_wish.addScaledVector( _fwd, axes.y );
 		_wish.addScaledVector( _right, axes.x );
 		if ( _wish.lengthSq() > 1 ) _wish.normalize();
-		const speed = ( inp.down( 'ShiftLeft' ) ? 2.6 : 1.6 );
+		const sprintAmount = Math.max( axes.sprint, inp.down( 'ShiftLeft' ) || inp.down( 'ShiftRight' ) ? 1 : 0 );
+		const speed = THREE.MathUtils.lerp( 1.6, 2.6, sprintAmount );
 		const k = 1 - Math.exp( - 12 * dt );
 		const v = this.deckVel;
 		v.x += ( _wish.x * speed - v.x ) * k;
