@@ -890,6 +890,16 @@ body {
 	transform: translate(-50%, 0);
 }
 
+.tw-prompt.is-touch-action {
+	z-index: 21;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.tw-prompt.is-touch-action:active {
+	filter: brightness(1.25);
+}
+
 .tw-root .tw-prompt-key {
 	position: relative;
 	min-width: calc(28 * var(--tw-u));

@@ -231,6 +231,12 @@ export class Input {
 
 	}
 
+	press( code ) {
+
+		if ( this.enabled ) this.pressed.add( code );
+
+	}
+
 	consumeLook( dt = 1 / 60 ) {
 
 		const { x, y } = this.lookStick;
