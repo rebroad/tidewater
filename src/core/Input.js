@@ -179,6 +179,14 @@ export class Input {
 
 	}
 
+	_shapeAxis( value, deadZone ) {
+
+		const magnitude = Math.abs( value );
+		if ( magnitude <= deadZone ) return 0;
+		return Math.sign( value ) * ( ( magnitude - deadZone ) / ( 1 - deadZone ) ) ** 1.7;
+
+	}
+
 	moveAxes() {
 
 		const { x, y } = this.moveStick;
@@ -187,7 +195,7 @@ export class Input {
 		if ( length > 0.08 ) {
 			const magnitude = Math.min( ( length - 0.08 ) / 0.92, 1 );
 			const shaped = magnitude ** 1.7 / length;
-			sx = x * shaped;
+			sx = this._shapeAxis( x, 0.22 );
 			sy = y * shaped;
 		}
 		return {
