@@ -1,4 +1,6 @@
 // Keyboard / mouse input with pointer lock support.
+const LOOK_VERTICAL_DEAD_ZONE = 0.78;
+
 export class Input {
 
 	constructor( dom ) {
@@ -246,7 +248,7 @@ export class Input {
 			const magnitude = Math.min( ( length - 0.04 ) / 0.96, 1 );
 			const shaped = magnitude ** 1.7 / length;
 			sx = x * shaped;
-			sy = this._shapeAxis( y, 0.22 );
+			sy = this._shapeAxis( y, LOOK_VERTICAL_DEAD_ZONE );
 		}
 		const l = {
 			x: this.look.x + sx * 420 * dt,
