@@ -1,9 +1,9 @@
-name: Deploy mobile test build to GitHub Pages
+name: Deploy Tidewater to GitHub Pages
 
 on:
   push:
     branches:
-      - codex/mobile-touch-controls
+      - main
   workflow_dispatch:
 
 permissions:
