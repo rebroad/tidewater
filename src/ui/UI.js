@@ -2718,7 +2718,7 @@ export class UI {
 
 	}
 
-	// setPrompt( 'E', 'Board boat' ) shows it; setPrompt( null ) hides it.
+	// setPrompt( 'E', 'Take the helm' ) shows it; setPrompt( null ) hides it.
 	setPrompt( key, text ) {
 
 		const on = key != null && key !== '';
@@ -3525,7 +3525,7 @@ export class UI {
 		const MODES = [
 			[ 'Boat · 3rd person', 'E', 'Leave boat' ],
 			[ 'Boat · 1st person', 'V', 'Third-person camera' ],
-			[ 'Walking', 'E', 'Board boat' ],
+			[ 'Walking', null, null ],
 			[ 'Swimming', 'Space', 'Swim up' ],
 			[ 'Diving', null, null ],
 			[ 'Free camera', 'F', 'Leave free camera' ],
