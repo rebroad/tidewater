@@ -204,14 +204,13 @@ export class Player {
 	updateWalk( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		_fwd.set( - Math.sin( this.yaw ), 0, - Math.cos( this.yaw ) );
 		_right.set( - _fwd.z, 0, _fwd.x );
 		const wish = new THREE.Vector3();
-		if ( inp.down( 'KeyW' ) ) wish.add( _fwd );
-		if ( inp.down( 'KeyS' ) ) wish.sub( _fwd );
-		if ( inp.down( 'KeyD' ) ) wish.add( _right );
-		if ( inp.down( 'KeyA' ) ) wish.sub( _right );
-		if ( wish.lengthSq() > 0 ) wish.normalize();
+		wish.addScaledVector( _fwd, axes.y );
+		wish.addScaledVector( _right, axes.x );
+		if ( wish.lengthSq() > 1 ) wish.normalize();
 
 		const depth = this.waterH - this.position.y; // water depth at the feet
 		const wade = THREE.MathUtils.clamp( depth / 1.2, 0, 1 );
@@ -299,19 +298,18 @@ export class Player {
 	updateSwim( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		const p = this.position;
 		const surfaceY = this.waterH;
 		// look-relative movement (diving follows the view)
 		_fwd.set( 0, 0, - 1 ).applyEuler( _e.set( this.pitch, this.yaw, 0 ) );
 		_right.set( - Math.cos( this.yaw ), 0, Math.sin( this.yaw ) ).negate();
 		const wish = new THREE.Vector3();
-		if ( inp.down( 'KeyW' ) ) wish.add( _fwd );
-		if ( inp.down( 'KeyS' ) ) wish.sub( _fwd );
-		if ( inp.down( 'KeyD' ) ) wish.add( _right );
-		if ( inp.down( 'KeyA' ) ) wish.sub( _right );
+		wish.addScaledVector( _fwd, axes.y );
+		wish.addScaledVector( _right, axes.x );
 		if ( inp.down( 'Space' ) ) wish.y += 1;
 		if ( inp.down( 'KeyC' ) || inp.down( 'ControlLeft' ) ) wish.y -= 1;
-		if ( wish.lengthSq() > 0 ) wish.normalize();
+		if ( wish.lengthSq() > 1 ) wish.normalize();
 
 		const atSurface = this.floating && p.y > surfaceY - 0.45;
 		// at the surface W along a level view keeps you on top; looking down dives
@@ -587,6 +585,7 @@ export class Player {
 	updateDeck( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		const b = this.boat;
 		const L = b.model.lines;
 		const look = inp.consumeLook( dt );
@@ -598,11 +597,9 @@ export class Player {
 		_fwd.set( sy, 0, cy );
 		_right.set( - cy, 0, sy );
 		_wish.set( 0, 0, 0 );
-		if ( inp.down( 'KeyW' ) ) _wish.add( _fwd );
-		if ( inp.down( 'KeyS' ) ) _wish.sub( _fwd );
-		if ( inp.down( 'KeyD' ) ) _wish.add( _right );
-		if ( inp.down( 'KeyA' ) ) _wish.sub( _right );
-		if ( _wish.lengthSq() > 0 ) _wish.normalize();
+		_wish.addScaledVector( _fwd, axes.y );
+		_wish.addScaledVector( _right, axes.x );
+		if ( _wish.lengthSq() > 1 ) _wish.normalize();
 		const speed = ( inp.down( 'ShiftLeft' ) ? 2.6 : 1.6 );
 		const k = 1 - Math.exp( - 12 * dt );
 		const v = this.deckVel;
@@ -728,6 +725,7 @@ export class Player {
 	updateBoat( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		const b = this.boat;
 		const look = inp.consumeLook( dt );
 		const wheel = inp.consumeWheel();
@@ -740,12 +738,8 @@ export class Player {
 
 		}
 
-		let throttle = 0;
-		if ( inp.down( 'KeyW' ) ) throttle = inp.down( 'ShiftLeft' ) ? 1 : 0.7;
-		if ( inp.down( 'KeyS' ) ) throttle = - 0.6;
-		let steer = 0;
-		if ( inp.down( 'KeyA' ) ) steer += 1;
-		if ( inp.down( 'KeyD' ) ) steer -= 1;
+		const throttle = axes.y > 0 ? axes.y * ( inp.down( 'ShiftLeft' ) ? 1 : 0.7 ) : axes.y * 0.6;
+		const steer = - axes.x;
 		b.setInput( throttle, steer, dt );
 		this.prompt = { key: 'E', text: 'Leave helm   ·   V  camera' };
 

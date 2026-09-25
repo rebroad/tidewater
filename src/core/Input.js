@@ -169,6 +169,34 @@ export class Input {
 
 	}
 
+	_moveAxis( negative, positive, value ) {
+
+		if ( ! this.enabled ) return 0;
+		if ( this.keys.has( negative ) || this.keys.has( positive ) ) {
+			return Number( this.keys.has( positive ) ) - Number( this.keys.has( negative ) );
+		}
+		return value;
+
+	}
+
+	moveAxes() {
+
+		const { x, y } = this.moveStick;
+		const length = Math.hypot( x, y );
+		let sx = 0, sy = 0;
+		if ( length > 0.08 ) {
+			const magnitude = Math.min( ( length - 0.08 ) / 0.92, 1 );
+			const shaped = magnitude ** 1.7 / length;
+			sx = x * shaped;
+			sy = y * shaped;
+		}
+		return {
+			x: this._moveAxis( 'KeyA', 'KeyD', sx ),
+			y: this._moveAxis( 'KeyS', 'KeyW', sy ),
+		};
+
+	}
+
 	down( code ) {
 
 		if ( ! this.enabled ) return false;
@@ -191,9 +219,18 @@ export class Input {
 
 	consumeLook( dt = 1 / 60 ) {
 
+		const { x, y } = this.lookStick;
+		const length = Math.hypot( x, y );
+		let sx = 0, sy = 0;
+		if ( length > 0.04 ) {
+			const magnitude = Math.min( ( length - 0.04 ) / 0.96, 1 );
+			const shaped = magnitude ** 1.7 / length;
+			sx = x * shaped;
+			sy = y * shaped;
+		}
 		const l = {
-			x: this.look.x + this.lookStick.x * 600 * dt,
-			y: this.look.y - this.lookStick.y * 600 * dt,
+			x: this.look.x + sx * 420 * dt,
+			y: this.look.y - sy * 420 * dt,
 		};
 		this.look.x = 0;
 		this.look.y = 0;
