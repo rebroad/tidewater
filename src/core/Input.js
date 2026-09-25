@@ -197,6 +197,12 @@ export class Input {
 			const shaped = magnitude ** 1.7 / length;
 			sx = this._shapeAxis( x, 0.22 );
 			sy = y * shaped;
+			const axisLength = Math.hypot( sx, sy );
+			if ( axisLength > 0 ) {
+				const response = magnitude ** 1.7 / axisLength;
+				sx *= response;
+				sy *= response;
+			}
 		}
 		return {
 			x: this._moveAxis( 'KeyA', 'KeyD', sx ),
