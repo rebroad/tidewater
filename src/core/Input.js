@@ -234,7 +234,7 @@ export class Input {
 			const magnitude = Math.min( ( length - 0.04 ) / 0.96, 1 );
 			const shaped = magnitude ** 1.7 / length;
 			sx = x * shaped;
-			sy = y * shaped;
+			sy = this._shapeAxis( y, 0.22 );
 		}
 		const l = {
 			x: this.look.x + sx * 420 * dt,
