@@ -21,6 +21,10 @@ const _e = new THREE.Euler( 0, 0, 0, 'YXZ' );
 const _yAxis = new THREE.Vector3( 0, 1, 0 );
 const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion();
 const _wish = new THREE.Vector3();
+const _boatLocal = new THREE.Vector3();
+const _boatPrevLocal = new THREE.Vector3();
+const _boatInvQ = new THREE.Quaternion();
+const _boatRelativeVelocity = new THREE.Vector3();
 // walking on the boat
 const DECK_RADIUS = 0.24;
 const DECK_STEP = 0.36; // highest ledge you step up onto
@@ -119,16 +123,6 @@ export class Player {
 
 	}
 
-	nearBoat() {
-
-		if ( ! this.boat ) return false;
-		const bp = this.boat.toWorld( this.boat.model.boardPoint, _v );
-		const d = Math.hypot( bp.x - this.position.x, bp.z - this.position.z );
-		const dy = Math.abs( bp.y - this.position.y );
-		return d < 4.2 && dy < 3.2;
-
-	}
-
 	// ------------------------------------------------------------------ update
 
 	update( dt ) {
@@ -153,26 +147,19 @@ export class Player {
 
 		}
 
-		const look = inp.consumeLook();
+		const look = inp.consumeLook( dt );
 		this.yaw -= look.x * 0.0022;
 		this.pitch = THREE.MathUtils.clamp( this.pitch - look.y * 0.0022, - 1.5, 1.5 );
-
-		// (not with a line out or a fish in hand: E belongs to the fishing then)
-		if ( this.nearBoat() && ! this.busy ) {
-
-			this.prompt = { key: 'E', text: 'Board boat' };
-			if ( inp.hit( 'KeyE' ) ) {
-
-				this.boardBoat();
-				return;
-
-			}
-
-		}
 
 		const prevMode = this.mode;
 		if ( this.mode === 'walk' ) this.updateWalk( dt );
 		else this.updateSwim( dt );
+		if ( this.mode === 'deck' ) {
+
+			this.updateDeck( dt );
+			return;
+
+		}
 
 		// camera. Wading out of your depth, finding your feet again or climbing out on a ladder
 		// changes the eye height: ease the view there (critically damped) instead of jumping
@@ -204,14 +191,13 @@ export class Player {
 	updateWalk( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		_fwd.set( - Math.sin( this.yaw ), 0, - Math.cos( this.yaw ) );
 		_right.set( - _fwd.z, 0, _fwd.x );
 		const wish = new THREE.Vector3();
-		if ( inp.down( 'KeyW' ) ) wish.add( _fwd );
-		if ( inp.down( 'KeyS' ) ) wish.sub( _fwd );
-		if ( inp.down( 'KeyD' ) ) wish.add( _right );
-		if ( inp.down( 'KeyA' ) ) wish.sub( _right );
-		if ( wish.lengthSq() > 0 ) wish.normalize();
+		wish.addScaledVector( _fwd, axes.y );
+		wish.addScaledVector( _right, axes.x );
+		if ( wish.lengthSq() > 1 ) wish.normalize();
 
 		const depth = this.waterH - this.position.y; // water depth at the feet
 		const wade = THREE.MathUtils.clamp( depth / 1.2, 0, 1 );
@@ -238,6 +224,7 @@ export class Player {
 		const old = p.clone();
 		p.addScaledVector( this.velocity, dt );
 		this.colliders.resolveCapsule( p, RADIUS, HEIGHT, 0.4 );
+		if ( this.landOnBoat( old, p ) ) return;
 		const g = this.groundAt( p.x, p.z, p.y + 0.45 );
 		if ( p.y <= g ) {
 
@@ -283,6 +270,36 @@ export class Player {
 
 	}
 
+	// Catch a descending player on any boat surface already marked walkable by the deck controller.
+	// Once landed, deck-local movement keeps both the player and view attached as the hull rocks.
+	landOnBoat( previous, current ) {
+
+		const b = this.boat;
+		if ( ! b || this.velocity.y >= 0 ) return false;
+
+		_boatInvQ.copy( b.quaternion ).invert();
+		_boatLocal.copy( current ).sub( b.position ).applyQuaternion( _boatInvQ );
+		_boatPrevLocal.copy( previous ).sub( b.position ).applyQuaternion( _boatInvQ );
+		_boatRelativeVelocity.copy( this.velocity ).sub( b.velocity ).applyQuaternion( _boatInvQ );
+		if ( _boatRelativeVelocity.y >= 0 ) return false;
+
+		for ( const c of b.model.colliders ) {
+
+			if ( ! c.walkable ) continue;
+			const top = c.center.y + c.half.y;
+			if ( _boatPrevLocal.y < top - 0.03 || _boatLocal.y > top + 0.04 || _boatLocal.y < top - 0.35 ) continue;
+			if ( Math.abs( _boatLocal.x - c.center.x ) > c.half.x + RADIUS || Math.abs( _boatLocal.z - c.center.z ) > c.half.z + RADIUS ) continue;
+
+			_boatLocal.y = top;
+			this.boardBoat( _boatLocal );
+			return true;
+
+		}
+
+		return false;
+
+	}
+
 	surfaceType( depth ) {
 
 		const p = this.position;
@@ -299,19 +316,18 @@ export class Player {
 	updateSwim( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		const p = this.position;
 		const surfaceY = this.waterH;
 		// look-relative movement (diving follows the view)
 		_fwd.set( 0, 0, - 1 ).applyEuler( _e.set( this.pitch, this.yaw, 0 ) );
 		_right.set( - Math.cos( this.yaw ), 0, Math.sin( this.yaw ) ).negate();
 		const wish = new THREE.Vector3();
-		if ( inp.down( 'KeyW' ) ) wish.add( _fwd );
-		if ( inp.down( 'KeyS' ) ) wish.sub( _fwd );
-		if ( inp.down( 'KeyD' ) ) wish.add( _right );
-		if ( inp.down( 'KeyA' ) ) wish.sub( _right );
+		wish.addScaledVector( _fwd, axes.y );
+		wish.addScaledVector( _right, axes.x );
 		if ( inp.down( 'Space' ) ) wish.y += 1;
 		if ( inp.down( 'KeyC' ) || inp.down( 'ControlLeft' ) ) wish.y -= 1;
-		if ( wish.lengthSq() > 0 ) wish.normalize();
+		if ( wish.lengthSq() > 1 ) wish.normalize();
 
 		const atSurface = this.floating && p.y > surfaceY - 0.45;
 		// at the surface W along a level view keeps you on top; looking down dives
@@ -412,12 +428,12 @@ export class Player {
 
 	// ------------------------------------------------------------------ boat
 
-	// step aboard from the pier / beach / water: onto the cockpit sole at the boarding point
-	boardBoat() {
+	// Enter deck mode at a landed boat-local point (or the default point for internal callers).
+	boardBoat( landingPoint = null ) {
 
 		const b = this.boat;
 		this.mode = 'deck';
-		this.deckPos.copy( b.model.boardPoint );
+		this.deckPos.copy( landingPoint || b.model.boardPoint );
 		this.deckVel.set( 0, 0, 0 );
 		// keep looking where you looked (relative to the boat)
 		this.deckYaw = this.yaw - ( b.getYaw() + Math.PI );
@@ -587,9 +603,10 @@ export class Player {
 	updateDeck( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		const b = this.boat;
 		const L = b.model.lines;
-		const look = inp.consumeLook();
+		const look = inp.consumeLook( dt );
 		this.deckYaw -= look.x * 0.0022;
 		this.pitch = THREE.MathUtils.clamp( this.pitch - look.y * 0.0022, - 1.5, 1.5 );
 
@@ -598,11 +615,9 @@ export class Player {
 		_fwd.set( sy, 0, cy );
 		_right.set( - cy, 0, sy );
 		_wish.set( 0, 0, 0 );
-		if ( inp.down( 'KeyW' ) ) _wish.add( _fwd );
-		if ( inp.down( 'KeyS' ) ) _wish.sub( _fwd );
-		if ( inp.down( 'KeyD' ) ) _wish.add( _right );
-		if ( inp.down( 'KeyA' ) ) _wish.sub( _right );
-		if ( _wish.lengthSq() > 0 ) _wish.normalize();
+		_wish.addScaledVector( _fwd, axes.y );
+		_wish.addScaledVector( _right, axes.x );
+		if ( _wish.lengthSq() > 1 ) _wish.normalize();
 		const speed = ( inp.down( 'ShiftLeft' ) ? 2.6 : 1.6 );
 		const k = 1 - Math.exp( - 12 * dt );
 		const v = this.deckVel;
@@ -728,8 +743,9 @@ export class Player {
 	updateBoat( dt ) {
 
 		const inp = this.input;
+		const axes = inp.moveAxes();
 		const b = this.boat;
-		const look = inp.consumeLook();
+		const look = inp.consumeLook( dt );
 		const wheel = inp.consumeWheel();
 
 		if ( inp.hit( 'KeyV' ) ) this.camMode = this.camMode === 'first' ? 'third' : 'first';
@@ -740,12 +756,8 @@ export class Player {
 
 		}
 
-		let throttle = 0;
-		if ( inp.down( 'KeyW' ) ) throttle = inp.down( 'ShiftLeft' ) ? 1 : 0.7;
-		if ( inp.down( 'KeyS' ) ) throttle = - 0.6;
-		let steer = 0;
-		if ( inp.down( 'KeyA' ) ) steer += 1;
-		if ( inp.down( 'KeyD' ) ) steer -= 1;
+		const throttle = axes.y > 0 ? axes.y * ( inp.down( 'ShiftLeft' ) ? 1 : 0.7 ) : axes.y * 0.6;
+		const steer = - axes.x;
 		b.setInput( throttle, steer, dt );
 		this.prompt = { key: 'E', text: 'Leave helm   ·   V  camera' };
 

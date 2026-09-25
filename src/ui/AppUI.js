@@ -17,6 +17,14 @@ export class AppUI {
 
 		this.app = app;
 		this.ui = ui;
+		this.ui.promptEl.addEventListener( 'pointerdown', ( e ) => {
+
+			if ( ! this.ui.promptEl.classList.contains( 'is-touch-action' ) ) return;
+			e.preventDefault();
+			e.stopPropagation();
+			this.app.input.press( 'KeyE' );
+
+		} );
 		const fft = app.fft;
 		const shore = app.shore;
 

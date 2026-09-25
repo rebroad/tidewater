@@ -37,7 +37,8 @@ export class FlyCamera {
 
 		if ( ! this.enabled ) return;
 		const inp = this.input;
-		const look = inp.consumeLook();
+		const axes = inp.moveAxes();
+		const look = inp.consumeLook( dt );
 		this.yaw -= look.x * 0.0022;
 		this.pitch -= look.y * 0.0022;
 		this.pitch = Math.max( - 1.55, Math.min( 1.55, this.pitch ) );
@@ -48,13 +49,12 @@ export class FlyCamera {
 		this.camera.getWorldDirection( this._fwd );
 		this._right.crossVectors( this._fwd, this.camera.up ).normalize();
 		const move = new THREE.Vector3();
-		if ( inp.down( 'KeyW' ) ) move.add( this._fwd );
-		if ( inp.down( 'KeyS' ) ) move.sub( this._fwd );
-		if ( inp.down( 'KeyD' ) ) move.add( this._right );
-		if ( inp.down( 'KeyA' ) ) move.sub( this._right );
+		move.addScaledVector( this._fwd, axes.y );
+		move.addScaledVector( this._right, axes.x );
 		if ( inp.down( 'KeyE' ) || inp.down( 'Space' ) ) move.y += 1;
 		if ( inp.down( 'KeyQ' ) || inp.down( 'KeyC' ) ) move.y -= 1;
-		if ( move.lengthSq() > 0 ) move.normalize().multiplyScalar( speed );
+		if ( move.lengthSq() > 1 ) move.normalize();
+		move.multiplyScalar( speed );
 		this.velocity.lerp( move, 1 - Math.exp( - dt * 8 ) );
 		this.camera.position.addScaledVector( this.velocity, dt );
 

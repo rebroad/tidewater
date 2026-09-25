@@ -2133,6 +2133,7 @@ export class UI {
 					<div>
 						<h2 id="tw-help-title">Controls</h2>
 						<p>Click the view to capture the mouse. Esc releases it.</p>
+						<p class="tw-help-touch-hint">On a touch screen, use the left stick to move and the right stick to look. Tap an action prompt to interact.</p>
 					</div>
 					<button type="button" class="tw-icon-btn tw-help-close" aria-label="Close" data-tip="Close (F1)">${ icon( 'close' ) }</button>
 				</header>
@@ -2189,7 +2190,8 @@ export class UI {
 			<div class="tw-start-inner">
 				${ brandMark( 'tw-start-mark' ) }
 				<div class="tw-start-title">TIDEWATER</div>
-				<button type="button" class="tw-start-cta"><span class="tw-start-pulse" aria-hidden="true"></span>${ icon( 'mouse' ) }<span>Click to explore</span></button>
+				<button type="button" class="tw-start-cta"><span class="tw-start-pulse" aria-hidden="true"></span>${ icon( 'mouse' ) }<span>Tap or click to explore</span></button>
+				<div class="tw-start-touch-hint">Left stick moves · right stick looks · tap action prompts</div>
 				<div class="tw-start-keys">
 					<span><span class="tw-wasd"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>Move</span>
 					<span><kbd class="tw-kbd-ico">${ icon( 'mouse' ) }</kbd>Look</span>
@@ -2716,7 +2718,7 @@ export class UI {
 
 	}
 
-	// setPrompt( 'E', 'Board boat' ) shows it; setPrompt( null ) hides it.
+	// setPrompt( 'E', 'Take the helm' ) shows it; setPrompt( null ) hides it.
 	setPrompt( key, text ) {
 
 		const on = key != null && key !== '';
@@ -2727,9 +2729,15 @@ export class UI {
 
 				this._pKey = k;
 				this._pText = t;
-				this.promptKey.textContent = k;
-				this.promptKey.classList.toggle( 'is-wide', k.length > 1 );
+				const touchAction = k === 'E' && window.matchMedia?.( '(pointer: coarse)' ).matches;
+				const promptKeyLabel = touchAction ? 'Tap' : k;
+				this.promptKey.textContent = promptKeyLabel;
+				this.promptKey.classList.toggle( 'is-wide', promptKeyLabel.length > 1 );
 				this.promptText.textContent = t;
+				this.promptEl.classList.toggle( 'is-touch-action', touchAction );
+				this.promptEl.classList.toggle( 'tw-interactive', touchAction );
+				this.promptEl.setAttribute( 'role', touchAction ? 'button' : 'status' );
+				this.promptEl.setAttribute( 'aria-label', touchAction ? `Tap to ${ t.toLowerCase() }` : t );
 				this.promptEl.classList.remove( 'is-bump' );
 				void this.promptEl.offsetWidth;
 				this.promptEl.classList.add( 'is-bump' );
@@ -3517,7 +3525,7 @@ export class UI {
 		const MODES = [
 			[ 'Boat · 3rd person', 'E', 'Leave boat' ],
 			[ 'Boat · 1st person', 'V', 'Third-person camera' ],
-			[ 'Walking', 'E', 'Board boat' ],
+			[ 'Walking', null, null ],
 			[ 'Swimming', 'Space', 'Swim up' ],
 			[ 'Diving', null, null ],
 			[ 'Free camera', 'F', 'Leave free camera' ],
