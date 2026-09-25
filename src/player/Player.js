@@ -153,7 +153,7 @@ export class Player {
 
 		}
 
-		const look = inp.consumeLook();
+		const look = inp.consumeLook( dt );
 		this.yaw -= look.x * 0.0022;
 		this.pitch = THREE.MathUtils.clamp( this.pitch - look.y * 0.0022, - 1.5, 1.5 );
 
@@ -589,7 +589,7 @@ export class Player {
 		const inp = this.input;
 		const b = this.boat;
 		const L = b.model.lines;
-		const look = inp.consumeLook();
+		const look = inp.consumeLook( dt );
 		this.deckYaw -= look.x * 0.0022;
 		this.pitch = THREE.MathUtils.clamp( this.pitch - look.y * 0.0022, - 1.5, 1.5 );
 
@@ -729,7 +729,7 @@ export class Player {
 
 		const inp = this.input;
 		const b = this.boat;
-		const look = inp.consumeLook();
+		const look = inp.consumeLook( dt );
 		const wheel = inp.consumeWheel();
 
 		if ( inp.hit( 'KeyV' ) ) this.camMode = this.camMode === 'first' ? 'third' : 'first';

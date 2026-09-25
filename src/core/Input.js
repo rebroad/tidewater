@@ -7,6 +7,8 @@ export class Input {
 		this.keys = new Set();
 		this.pressed = new Set();
 		this.look = { x: 0, y: 0 };
+		this.moveStick = { x: 0, y: 0 };
+		this.lookStick = { x: 0, y: 0 };
 		this.wheel = 0;
 		this.mouseDown = false;
 		this.rightDown = false;
@@ -22,7 +24,13 @@ export class Input {
 
 		} );
 		window.addEventListener( 'keyup', ( e ) => this.keys.delete( e.code ) );
-		window.addEventListener( 'blur', () => this.keys.clear() );
+		window.addEventListener( 'blur', () => this._clearTransientInput() );
+		document.addEventListener( 'visibilitychange', () => {
+
+			if ( document.hidden ) this._clearTransientInput();
+
+		} );
+		this._createTouchSticks();
 
 		dom.addEventListener( 'mousedown', ( e ) => {
 
@@ -64,13 +72,113 @@ export class Input {
 
 	requestLock() {
 
+		if ( window.matchMedia?.( '(pointer: coarse)' ).matches ) return;
 		if ( ! this.locked ) this.dom.requestPointerLock?.()?.catch?.( () => {} );
+
+	}
+
+	_createTouchSticks() {
+
+		const root = document.querySelector( '.tw-root' );
+		if ( ! root ) return;
+
+		const controls = document.createElement( 'div' );
+		controls.className = 'tw-touch-controls';
+		controls.setAttribute( 'aria-label', 'Touch controls' );
+		this._touchStickResetters = [];
+		for ( const [ name, label, state ] of [
+			[ 'move', 'Move', this.moveStick ],
+			[ 'look', 'Look', this.lookStick ],
+		] ) {
+
+			const stick = document.createElement( 'button' );
+			stick.className = `tw-touch-stick tw-touch-stick-${ name } tw-interactive`;
+			stick.type = 'button';
+			stick.setAttribute( 'aria-label', `${ label } joystick` );
+			stick.tabIndex = -1;
+			stick.innerHTML = '<span class="tw-touch-stick-label">' + label + '</span><span class="tw-touch-stick-knob" aria-hidden="true"></span>';
+			const knob = stick.querySelector( '.tw-touch-stick-knob' );
+			let pointerId = null;
+
+			const reset = () => {
+
+				pointerId = null;
+				state.x = state.y = 0;
+				stick.classList.remove( 'is-active' );
+				knob.style.transform = 'translate( -50%, -50% )';
+
+			};
+			this._touchStickResetters.push( reset );
+			const update = ( e ) => {
+
+				const rect = stick.getBoundingClientRect();
+				const radius = rect.width * 0.29;
+				let x = e.clientX - ( rect.left + rect.width / 2 );
+				let y = e.clientY - ( rect.top + rect.height / 2 );
+				const length = Math.hypot( x, y );
+				if ( length > radius ) { x *= radius / length; y *= radius / length; }
+				state.x = x / radius;
+				state.y = - y / radius;
+				knob.style.transform = `translate( calc( -50% + ${ x }px ), calc( -50% + ${ y }px ) )`;
+
+			};
+
+			stick.addEventListener( 'pointerdown', ( e ) => {
+
+				if ( pointerId !== null ) return;
+				e.preventDefault();
+				e.stopPropagation();
+				pointerId = e.pointerId;
+				stick.setPointerCapture( pointerId );
+				stick.classList.add( 'is-active' );
+				update( e );
+
+			} );
+			stick.addEventListener( 'pointermove', ( e ) => {
+
+				if ( e.pointerId !== pointerId ) return;
+				e.preventDefault();
+				update( e );
+
+			} );
+			stick.addEventListener( 'pointerup', ( e ) => {
+
+				if ( e.pointerId === pointerId ) reset();
+
+			} );
+			stick.addEventListener( 'pointercancel', reset );
+			stick.addEventListener( 'lostpointercapture', reset );
+			controls.append( stick );
+
+		}
+
+		root.append( controls );
+
+	}
+
+	_clearTransientInput() {
+
+		this.keys.clear();
+		this.pressed.clear();
+		this.mouseDown = false;
+		this.rightDown = false;
+		this.look.x = this.look.y = 0;
+		this.moveStick.x = this.moveStick.y = 0;
+		this.lookStick.x = this.lookStick.y = 0;
+		for ( const reset of this._touchStickResetters || [] ) reset();
 
 	}
 
 	down( code ) {
 
-		return this.enabled && this.keys.has( code );
+		if ( ! this.enabled ) return false;
+		if ( this.keys.has( code ) ) return true;
+		const { x, y } = this.moveStick;
+		if ( code === 'KeyW' ) return y > 0.18;
+		if ( code === 'KeyS' ) return y < - 0.18;
+		if ( code === 'KeyD' ) return x > 0.18;
+		if ( code === 'KeyA' ) return x < - 0.18;
+		return false;
 
 	}
 
@@ -81,9 +189,12 @@ export class Input {
 
 	}
 
-	consumeLook() {
+	consumeLook( dt = 1 / 60 ) {
 
-		const l = { x: this.look.x, y: this.look.y };
+		const l = {
+			x: this.look.x + this.lookStick.x * 600 * dt,
+			y: this.look.y - this.lookStick.y * 600 * dt,
+		};
 		this.look.x = 0;
 		this.look.y = 0;
 		return l;
