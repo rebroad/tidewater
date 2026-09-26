@@ -134,6 +134,7 @@ export class App {
 		// Shadows come from the opaque and the late (transparent-pass) layers.
 		this.csm = this.shadows = new SunShadows( { size: 2048, splits: [ 10, 60, 400 ], lightMargin: 200, normalBias: [ 0.015, 0.06, 0.3 ], bias: 0.00002 } );
 		this.shadows.layerMask = ( 1 << LAYERS.OPAQUE ) | ( 1 << LAYERS.TRANSPARENT );
+		if ( this.desktopAdaptiveScale ) this.shadows.enabled = false;
 
 		this.environment = new Environment( renderer, scene, this.sky );
 
@@ -252,6 +253,7 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 			surface: this.surface, sky: this.sky, sceneCopy: this.sceneRenderer.opaqueCopy, sceneDepthHalf: this.sceneRenderer.opaqueDepthHalf.texture, refraction: this.refraction,
 			hullMask: this.sceneRenderer.hullMaskRT.texture, hullMaskActive: this.sceneRenderer.hullMaskActive,
 		} );
+		if ( this.desktopAdaptiveScale ) this.waterMaterial.params.ssr.value = 0;
 		this.waterMaterial.clouds = this.clouds;
 		this.ocean = new Mesh( this.oceanLOD.geometry, this.waterMaterial );
 		this.ocean.frustumCulled = false;
