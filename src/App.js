@@ -84,7 +84,7 @@ export class App {
 			sunAzimuth: 0, // degrees: turns the sun's daily path about the vertical
 			timeSpeed: 0, // hours per real second
 			exposure: 0.55,
-			renderScale: this.desktopAdaptiveScale ? 0.75 : 1, // Linux starts lighter; adaptive scale targets 28 fps
+			renderScale: this.desktopAdaptiveScale ? 0.75 : 1, // Linux starts lighter; adaptive scale targets 24 fps
 		};
 	}
 
@@ -593,24 +593,24 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 	}
 
 	// Linux desktop integrated GPUs can be starved by the game's full-resolution post chain.
-	// Lower only the internal render scale when sustained FPS misses 28; recover slowly above 40
+	// Lower only the internal render scale when sustained FPS misses 24; recover slowly above 36
 	// so resolution changes do not flap. Android keeps the existing full-quality path.
 	adaptRenderScale( fps ) {
 
 		if ( ! this.autoScale ) return;
-		if ( fps < 28 ) {
+		if ( fps < 24 ) {
 
 			this._scaleAboveTarget = 0;
 			this._scaleBelowTarget += 0.5;
 			if ( this._scaleBelowTarget >= 1 ) {
 				this._scaleBelowTarget = 0;
-				this.setRenderScale( this.settings.renderScale - 0.05 );
+				if ( this.settings.renderScale > 0.5 ) this.setRenderScale( Math.max( 0.5, this.settings.renderScale - 0.05 ) );
 			}
 			return;
 
 		}
 		this._scaleBelowTarget = 0;
-		if ( fps > 40 ) {
+		if ( fps > 36 ) {
 
 			this._scaleAboveTarget += 0.5;
 			if ( this._scaleAboveTarget >= 8 ) {

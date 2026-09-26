@@ -21,16 +21,23 @@ const app = {
 	setRenderScale( scale ) { changes.push( scale ); this.settings.renderScale = scale; },
 };
 
-App.prototype.adaptRenderScale.call( app, 27 );
+App.prototype.adaptRenderScale.call( app, 23 );
 if ( changes.length !== 0 ) throw new Error( 'scale changed before a sustained low-FPS sample' );
-App.prototype.adaptRenderScale.call( app, 27 );
-if ( changes.at( - 1 ) !== 0.7 ) throw new Error( 'scale did not step down below 28 fps' );
+App.prototype.adaptRenderScale.call( app, 23 );
+if ( changes.at( - 1 ) !== 0.7 ) throw new Error( 'scale did not step down below 24 fps' );
 
-for ( let i = 0; i < 16; i ++ ) App.prototype.adaptRenderScale.call( app, 42 );
-if ( changes.at( - 1 ) !== 0.75 ) throw new Error( 'scale did not recover slowly above 40 fps' );
+for ( let i = 0; i < 16; i ++ ) App.prototype.adaptRenderScale.call( app, 38 );
+if ( changes.at( - 1 ) !== 0.75 ) throw new Error( 'scale did not recover slowly above 36 fps' );
 
 app.autoScale = false;
 for ( let i = 0; i < 20; i ++ ) App.prototype.adaptRenderScale.call( app, 10 );
 if ( changes.length !== 2 ) throw new Error( 'manual scale should disable automatic changes' );
+
+app.autoScale = true;
+app.settings.renderScale = 0.5;
+app._scaleBelowTarget = 0;
+changes.length = 0;
+for ( let i = 0; i < 20; i ++ ) App.prototype.adaptRenderScale.call( app, 10 );
+if ( changes.length !== 0 ) throw new Error( 'automatic scaling must stop at 50% resolution' );
 
 console.log( 'ok   Linux adaptive render scale hysteresis and manual override' );
