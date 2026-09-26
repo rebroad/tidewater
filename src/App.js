@@ -72,15 +72,20 @@ export class App {
 
 	constructor() {
 
+		this.qs = new URLSearchParams( location.search );
+		const platform = navigator.userAgentData?.platform || navigator.platform || '';
+		this.desktopAdaptiveScale = /linux/i.test( platform ) && ! /android/i.test( navigator.userAgent );
+		// ?scale is a deliberate override, useful for profiling and manual quality selection.
+		this.autoScale = this.desktopAdaptiveScale && ! this.qs.has( 'scale' );
+		this._scaleBelowTarget = 0;
+		this._scaleAboveTarget = 0;
 		this.settings = {
 			timeOfDay: 16.2,
 			sunAzimuth: 0, // degrees: turns the sun's daily path about the vertical
 			timeSpeed: 0, // hours per real second
 			exposure: 0.55,
-			renderScale: 1, // internal resolution (the temporal upscaler reconstructs the output), Performance tab
+			renderScale: this.desktopAdaptiveScale ? 0.75 : 1, // Linux starts lighter; adaptive scale targets 28 fps
 		};
-		this.qs = new URLSearchParams( location.search );
-
 	}
 
 	async init( onProgress = () => {} ) {
@@ -578,11 +583,44 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 
 			if ( f.el ) f.el.textContent = text;
 			this.fps = fps;
+			this.adaptRenderScale( fps );
 			f.acc = 0;
 			f.n = 0;
 			f.worst = 0;
 
 		}
+
+	}
+
+	// Linux desktop integrated GPUs can be starved by the game's full-resolution post chain.
+	// Lower only the internal render scale when sustained FPS misses 28; recover slowly above 40
+	// so resolution changes do not flap. Android keeps the existing full-quality path.
+	adaptRenderScale( fps ) {
+
+		if ( ! this.autoScale ) return;
+		if ( fps < 28 ) {
+
+			this._scaleAboveTarget = 0;
+			this._scaleBelowTarget += 0.5;
+			if ( this._scaleBelowTarget >= 1 ) {
+				this._scaleBelowTarget = 0;
+				this.setRenderScale( this.settings.renderScale - 0.05 );
+			}
+			return;
+
+		}
+		this._scaleBelowTarget = 0;
+		if ( fps > 40 ) {
+
+			this._scaleAboveTarget += 0.5;
+			if ( this._scaleAboveTarget >= 8 ) {
+				this._scaleAboveTarget = 0;
+				this.setRenderScale( this.settings.renderScale + 0.05 );
+			}
+			return;
+
+		}
+		this._scaleAboveTarget = 0;
 
 	}
 
@@ -701,11 +739,12 @@ fn terrainWetness( xz: vec2f, h: f32 ) -> vec2f {
 
 	}
 
-	// Internal render resolution relative to the output (0.5..1), set by hand: changing it re-creates
-	// the scene / post / cloud targets, so nothing adjusts it automatically.
+	// Internal render resolution relative to the output. Lower values reduce GPU pixel work; the
+	// temporal upscaler reconstructs the full output resolution.
 	setRenderScale( v ) {
 
-		const scale = MathUtils.clamp( Math.round( v * 20 ) / 20, 0.5, 1 );
+		const scale = MathUtils.clamp( Math.round( v * 20 ) / 20, 0.35, 1 );
+		if ( scale === this.settings.renderScale ) return;
 		this.settings.renderScale = scale;
 		this.post.setScale( scale );
 		if ( this.clouds ) this.clouds.resolutionScale = scale;
